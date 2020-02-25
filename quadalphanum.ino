@@ -22,12 +22,14 @@ Adafruit_AlphaNum4 alpha5 = Adafruit_AlphaNum4();
 //const int interruptPin = 2;
 const int selectPin = 2;
 const int enterPin = 3;
-const char semanario[][9] = {"DOMINGO", "LUNES", "MARTES", "MIERCOLE", "JUEVES", "VIERNES", "SABADO"};
+const char semanario[][9] = {"DOMINGO ", "LUNES   ", "MARTES  ", "MIERCOLE", "JUEVES  ", "VIERNES ", "SABADO  "};
+//const char meses[][3]={"EN","FB","MR","AB","MY","JN","JL","AG","SP","OC","NV","DC"};
 int despertado = 0;
 
 const char bb[] = "TIENES QUE ACERTAR 3 DE 5 AVERIGUA QUE DIA DE LA SEMANA FUE...";
 int jugador = 0;
 void writeMensaje(char displaybuffer[]);
+volatile byte wakeupSource;
 
 void setup() {
   Serial.begin(9600);
@@ -41,8 +43,8 @@ void setup() {
   alpha5.writeDisplay();
   pinMode(selectPin, INPUT);
   pinMode(enterPin, INPUT);
-  scroll("Hola");
-  delay(1000);
+  //scroll("Hola");
+  //delay(1000);
 
   Serial.println("Start typing to display!");
 }
@@ -84,7 +86,6 @@ void scroll(char bb[])
     displaybuffer[7] = bb[n];
     writeMensaje(displaybuffer);
     delay(200);
-
   }
 }
 
@@ -104,72 +105,67 @@ void writeMensaje(char displaybuffer[])
 }
 
 //char displaybuffer[8] = {' ', ' ', ' ', ' '};
+void duerme(byte cuanto)
+{
+  // multiplos de 8
+wakeupSource=0;
+for (byte n=0;n<cuanto;n++)
+{
+LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+if(wakeupSource==1)
+{
+  wakeupSource=0;
+  return;
+}
+}
+}
 
 void loop() {
   char fecha[9];
-  byte diaSemana = 0, intentos = 0;
+  byte diaSemana = 0, aciertos = 0;
   bool cambia_frecuencia1 = false;
   bool cambia_frecuencia2 = false;
-  scroll(bb);
+  attachInterrupt(digitalPinToInterrupt(enterPin), wakeUp, RISING );
+  attachInterrupt(digitalPinToInterrupt(selectPin), wakeUp, RISING );
+  scroll("ACIERTA 3 DE 5 Y TE DARE LA CLAVE      ");
+  scroll("QUE DIA DE LA SEMANA FUE    ");
   //escribeNumero(despertado);
-  //delay(2000);
+  writeMensaje("ddMMAAAA");
+  LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
   for (byte k = 0; k < INTENTOS; k++)
   {
     int mes = random(1, 12);
     int dia = random(1, 28);
-    int anno = random(1492, 2020);
+    int anno = random(2010, 2060);
     sprintf(fecha, "%02i%02i%4i", dia, mes, anno);
     ruleta(fecha);
-    //blink(HT16K33_BLINK_HALFHZ);
-    unsigned long desde = millis();
-    attachInterrupt(digitalPinToInterrupt(enterPin), wakeUp, RISING );
-    attachInterrupt(digitalPinToInterrupt(selectPin), wakeUp, RISING );
+    //blink(HT16K33_BLINK_HALFHZ); 
+ 
     while (1)
     {
-      // while (!digitalRead(enterPin) && !digitalRead(selectPin) && T_RESPUESTA > (millis() - desde))blink(3);
-      LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
-      /*{//9000/3  6000  3000
-        if(!cambia_frecuencia2 && (2*T_RESPUESTA/3) >(millis() - desde))
-        {
-          alpha4.blinkRate(HT16K33_BLINK_2HZ);
-          alpha5.blinkRate(HT16K33_BLINK_2HZ);
-          cambia_frecuencia2=true;
-        }
-        else if(!cambia_frecuencia1 && (T_RESPUESTA/3) >(millis() - desde))
-        {
-          alpha4.blinkRate(HT16K33_BLINK_1HZ);
-          alpha5.blinkRate(HT16K33_BLINK_1HZ);
-          cambia_frecuencia1=true;
-        }
 
-
-        }*/ //poner tiempo
-      /*alpha4.blinkRate(HT16K33_BLINK_OFF);
-        alpha5.blinkRate(HT16K33_BLINK_OFF);*/
+      duerme(2);
       if (digitalRead(selectPin))(diaSemana < 6) ? diaSemana++ : diaSemana = 0;
-      else break; //pulsado enter
-      scroll(semanario[diaSemana]);
-      desde = millis();
+        else break; //pulsado enter
+      writeMensaje(semanario[diaSemana]);
     };
 
     if (DiaSemana(anno, mes, dia) == diaSemana) {
       scroll("Correcto");
-      intentos++;
-
+      aciertos++;
+      if (aciertos >= 3)break;
     } else {
       scroll("Error fue");
       scroll(semanario[DiaSemana(anno, mes, dia)]);
     }
-    //delay(2000);
-    sprintf(fecha, "%02i/%02i", intentos, INTENTOS);
-    scroll(fecha);
-    delay(2000);
+    sprintf(fecha, "  %02i/%02i  ", aciertos, k+1);
+    writeMensaje(fecha);
+    LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
 
   }
-  if (intentos >= 3)scroll("La clave es 149");
-  else scroll("PRUEBA OTRA VEZ");
-  delay(2000);
-
+  if (aciertos >= 3)scroll("La clave es 149");
+    else scroll("PRUEBA OTRA VEZ");
+  LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
   alpha4.sleep();
   alpha5.sleep();
   attachInterrupt(digitalPinToInterrupt(enterPin), wakeUp, HIGH);
@@ -185,7 +181,7 @@ void loop() {
 }
 void wakeUp(void)
 {
-
+wakeupSource=1;
 }
 
 
